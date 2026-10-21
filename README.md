@@ -1,2 +1,3 @@
 # EV_Design_Demo
-Every code written concerning the  ev and our path
+The approach to our EV Design was we attempt to solve a problem even as we take part in the competition.
+The MATLAB evaluates our control logic while the Proteus simulation enables us to handle the addressing of microcontrollers.
