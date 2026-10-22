@@ -244,21 +244,4 @@ For more detail, see:
 
 
 
-\## Authors / Team Contribution
-
-This project was developed as part of the AURORA SDV prototype work.
-
-
-
-My contribution focused on:
-
-\- Proteus embedded simulation integration
-
-\- STM32 firmware setup and debugging
-
-\- Serial communication setup between MCUs
-
-\- System display cleanup and validation
-
-\- Mapping the prototype architecture to a real EV control interpretation
 
