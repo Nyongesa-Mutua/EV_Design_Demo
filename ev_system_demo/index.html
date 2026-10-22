@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JKUAT SDV HMI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080d13;--panel:#111a24;--p2:#1a2736;--line:#56708c;--ink:#f8fbff;--mute:#c9d6e3;--teal:#5eead4;--blue:#63b3ff;--amber:#ffc14d;--red:#ff6b6b;--green:#6ee7a0}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{display:grid;grid-template-rows:auto auto auto minmax(0,1fr);gap:8px;padding:8px;background:var(--bg);color:var(--ink);font:14px/1.4 "IBM Plex Sans",system-ui,sans-serif;overflow:hidden}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px}
+h1{margin:0;font:700 22px "Barlow Condensed",sans-serif;color:var(--teal)}
+h2{margin:0 0 8px;font-size:13px;font-weight:600;color:var(--teal)}
+.mute{color:var(--mute);font-size:12px}
+header{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+header .note{margin-left:auto}
+select,button{font:600 13px "IBM Plex Sans",sans-serif;color:var(--ink);background:var(--p2);border:1px solid var(--line);border-radius:5px;padding:8px 12px}
+button{cursor:pointer}button:hover{border-color:var(--ink)}
+:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+.b-run{background:#0f766e;border-color:#2dd4bf}.b-save{background:#9a5b1a;border-color:var(--amber)}
+#metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.tile small{display:block;color:var(--mute);font-size:12px}
+.tile b{font:700 26px/1.15 "Barlow Condensed",sans-serif;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+main{display:grid;grid-template-columns:240px minmax(0,1fr) 350px;gap:8px;min-height:0}
+#left,#right{display:flex;flex-direction:column;gap:8px;min-height:0;overflow:auto}
+#areas{width:100%;font-weight:400;padding:4px}
+#areas option{padding:3px 6px}
+#detail,#tele{white-space:pre-wrap;font-size:13px;margin:0;font-family:inherit}
+#center{display:grid;grid-template-rows:minmax(220px,1fr) 320px;gap:8px;min-height:0}
+#stage{position:relative;min-height:0;overflow:hidden;padding:0}
+#view{position:absolute;inset:0}#view canvas{display:block}
+#ctl{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center;background:rgba(8,13,19,.88);border:1px solid var(--line);border-radius:6px;padding:8px;width:max-content;max-width:calc(100% - 16px)}
+button.c{padding:11px 18px;font-size:15px;touch-action:none;user-select:none}
+#pwr[aria-pressed=true],#acc.down{background:#0f766e;border-color:#2dd4bf}
+#brk.down{background:#b45309;border-color:var(--amber)}
+#est{background:#b91c1c;border-color:#ff9a9a}
+#ctl label{font-size:13px;display:flex;gap:5px;align-items:center}
+#charts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:minmax(0,1fr);gap:8px;min-height:0}
+#charts .panel{padding:0;min-height:0;background:linear-gradient(180deg,#142131,#101923)}
+canvas.ch{width:100%;height:100%;display:block}
+.ckspd{font:700 76px/1 "Barlow Condensed",sans-serif}
+.kv{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+.kv div{background:var(--p2);border-radius:5px;padding:6px 8px}
+.kv small{display:block;color:var(--mute);font-size:12px}
+.kv b{font:700 21px/1.2 "Barlow Condensed",sans-serif}
+.pedal{margin-top:8px;font-size:12px;color:var(--mute)}
+.pedal i{display:block;height:10px;background:#2b3a4c;border-radius:5px;overflow:hidden}
+.pedal u{display:block;height:100%;width:0;text-decoration:none}
+#warn{margin-top:8px;padding:8px;border-radius:5px;background:var(--p2);font-weight:600}
+.dtc{display:block;width:100%;text-align:left;margin:3px 0;padding:5px 8px;font-weight:400;font-size:12px;color:var(--mute)}
+.dtc.on{background:#b91c1c;border-color:#ff9a9a;color:#fff;font-weight:600}
+.dtc.inj{outline:2px dashed var(--amber);outline-offset:1px}
+@media (max-width:1000px){
+ body{display:block;height:auto;overflow:auto}
+ #metrics{grid-template-columns:repeat(2,minmax(0,1fr));margin:8px 0}
+ main{grid-template-columns:1fr}#center{grid-template-rows:60vh auto}
+ #center{grid-template-rows:60vh auto}#charts{grid-template-columns:1fr}#charts .panel{height:220px}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>Integrated EV systems / software-in-the-loop</h1>
+  <select id="scn" aria-label="Scenario"></select>
+  <button class="b-run" id="run">Run scenario</button>
+  <button id="pause">Pause</button>
+  <button id="reset">Reset</button>
+  <button class="b-save" id="save">Save log</button>
+  <span class="mute" id="scnStat"></span>
+  <span class="mute note">Simulation demo | assumed parameters | not hardware validated</span>
+</header>
+
+<div id="link" class="panel" style="display:none;font-weight:600;color:var(--red);border-color:var(--red)"></div>
+<section id="metrics">
+  <div class="panel tile"><small>VCU state</small><b id="mState">OFF</b></div>
+  <div class="panel tile"><small>Pack SOC</small><b id="mSoc">--</b></div>
+  <div class="panel tile"><small>Vehicle speed</small><b id="mSpd">--</b></div>
+  <div class="panel tile"><small>DC bus</small><b id="mBus">--</b></div>
+  <div class="panel tile"><small>Fault / DTC</small><b id="mFault">CLEAR</b></div>
+</section>
+
+<main>
+  <aside id="left">
+    <section class="panel"><h2>System areas</h2><select id="areas" size="11" aria-label="System areas"></select></section>
+    <section class="panel" style="flex:1"><h2>Selected area / live signals</h2><div id="detail"></div></section>
+  </aside>
+
+  <div id="center">
+    <section class="panel" id="stage" aria-label="3D vehicle viewport">
+      <div id="view"></div>
+      <div id="ctl">
+        <button class="c" id="pwr" aria-pressed="false">Power off</button>
+        <button class="c" id="acc">Accelerate</button>
+        <button class="c" id="brk">Brake</button>
+        <button class="c" id="est">Emergency stop</button>
+        <label><input type="checkbox" id="eco"> Eco mode</label>
+        <label><input type="checkbox" id="plug"> Charger plugged</label>
+        <label title="Cut throttle while braking. Untick to let both pedals reach the model (pedal plausibility DTC)."><input type="checkbox" id="bo" checked> Brake overrides throttle</label>
+      </div>
+    </section>
+    <section id="charts">
+      <div class="panel"><canvas class="ch" id="c1"></canvas></div>
+      <div class="panel"><canvas class="ch" id="c2"></canvas></div>
+      <div class="panel"><canvas class="ch" id="c3"></canvas></div>
+    </section>
+  </div>
+
+  <aside id="right">
+    <section class="panel" id="cockpit" aria-label="Driver cockpit">
+      <h2>Driver cockpit</h2>
+      <div><span class="ckspd" id="ckSpd">0</span> <span class="mute">km/h &nbsp; limit <b id="ckLim">--</b></span></div>
+      <div class="kv">
+        <div><small>Estimated range</small><b id="ckRange">--</b></div>
+        <div><small>Battery SOC</small><b id="ckSoc">--</b></div>
+        <div><small>VCU state</small><b id="ckState">OFF</b></div>
+        <div><small>Drive mode</small><b id="ckMode">NORMAL</b></div>
+        <div><small>Direction</small><b id="ckDir">P</b></div>
+        <div><small>Power / regen</small><b id="ckPwr">0.0 kW</b></div>
+      </div>
+      <div class="pedal">Accelerator<i><u id="pA" style="background:var(--blue)"></u></i></div>
+      <div class="pedal">Brake<i><u id="pB" style="background:#ff9d5c"></u></i></div>
+      <div id="warn">Warnings: none</div>
+    </section>
+    <section class="panel">
+      <h2>Diagnostic trouble codes</h2>
+      <div id="dtcList"></div>
+      <div id="arr" class="mute" style="margin-top:6px"></div>
+      <div class="mute">Click a code to inject a test fault (dashed outline).</div>
+    </section>
+    <section class="panel"><h2>Integrated telemetry</h2><pre id="tele"></pre></section>
+  </aside>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+/* ---------- Config ---------- */
+const DT = 0.05, MAXH = 1800;                       // 20 Hz outer loop, 90 s chart window
+const API = location.protocol === 'file:' ? 'http://127.0.0.1:5000/api/telemetry' : '/api/telemetry';
+const STATES = ['', 'OFF','PRECHARGE','READY','DRIVE','REGEN','CHARGING','FAULT','ECO'];
+const SCOL = ['', '#d5dde8','#ffc14d','#63b3ff','#5eead4','#c4a5ff','#6ee7a0','#ff6b6b','#a3e635'];
+const DTC = ['Sensor range or dropout','BMS limit (temperature, SOC)','Network timeout','Pedal plausibility (accel and brake > 0.2)',
+  'Emergency stop','Motor overcurrent','Cell isolation request','Bus load above 70%','EKF numerical health'];
+const AREAS = [
+ ['System architecture','Driver demand flows through safety supervision into energy allocation, motor actuation, battery limits and the road plant. Every subsystem shares one scenario log.'],
+ ['Vehicle control & safety','Ignition, precharge, ready, drive, ECO, regen, charging and latched fault states. Diagnostics and BMS interlocks inhibit torque.'],
+ ['PMSM / motor control','dq current control with parameter feed-forward. An EKF tracks stator resistance as the motor heats up.'],
+ ['Battery management (BMS)','Pack voltage, SOC, temperature, limits and a latched cell-isolation request.'],
+ ['Charging system','Plug-in charging at standstill. Torque is blocked while the charger is plugged. No standards-compliance claim.'],
+ ['Energy management','Drive-mode speed caps (ECO 80 km/h, normal 120 km/h), regen acceptance and range estimate.'],
+ ['Sensors & signal conditioning','Range-checked speed and position. Out-of-range or missing data raises DTC bit 0.'],
+ ['Diagnostics & fault handling','Nine DTC bits, latched faults, and VCU shutdown to FAULT. Power-cycle at standstill clears latches.'],
+ ['Communication network','Telemetry sync at 20 Hz. A 0.5 s gap raises the network timeout DTC.'],
+ ['Vehicle & road plant','Longitudinal force balance: motor force, rolling resistance, drag, road grade and friction braking.'],
+ ['Scenario runner & logger','Twelve repeatable scripted runs. Save log exports the run as CSV.']];
+// Scenario timelines: [seconds, patch]. p power, a pedal target, b brake, c charger, eco, i DTC inject mask, g grade %, e e-stop pulse
+const SCEN = [
+ ['Startup and drive-off',[[0,{p:1}],[2.5,{a:.5}],[12,{a:0}]]],
+ ['Acceleration and speed limit',[[0,{p:1}],[2.5,{a:1}],[45,{a:0}]]],
+ ['Cruise with road grade',[[0,{p:1}],[2.5,{a:1}],[10,{a:.3}],[20,{g:6}],[35,{g:0}],[50,{a:0}]]],
+ ['Service braking and regen',[[0,{p:1}],[2.5,{a:1}],[10,{a:0}],[22,{b:1}],[24,{b:0}]]],
+ ['Shutdown and restart',[[0,{p:1}],[2.5,{a:.6}],[8,{a:0}],[12,{p:0}],[22,{p:1}]]],
+ ['Motor thermal drift',[[0,{p:1}],[2.5,{a:1}],[8,{g:5}],[80,{a:0,g:0}]]],
+ ['Sensor dropout fault',[[0,{p:1}],[2.5,{a:.6}],[10,{i:1}],[14,{i:0}],[20,{a:0}]]],
+ ['Emergency fault and recovery',[[0,{p:1}],[2.5,{a:.8}],[10,{e:1}],[16,{p:0}],[19,{p:1}],[22,{a:.4}],[30,{a:0}]]],
+ ['Charging session',[[0,{p:1}],[3,{c:1}],[40,{c:0}]]],
+ ['Communication network loss',[[0,{p:1}],[2.5,{a:.6}],[10,{i:4}],[13,{i:0}],[20,{a:0}]]],
+ ['ECO efficiency demonstration',[[0,{p:1,eco:1}],[2.5,{a:.7}],[40,{a:0}]]],
+ ['Cell overvoltage isolation',[[0,{p:1}],[2.5,{a:.5}],[10,{i:64}],[16,{p:0}],[18,{i:0}],[19,{p:1}]]]];
+
+const $ = id => document.getElementById(id);
+const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+const NODATA = {state:0, soc_pct:NaN, velocity_mps:NaN, torque_nm:NaN, torque_permitted:false, dtc:0, contactors_closed:false};
+const S = {v:0, z:0, odo:0, r:null, err:'', bman:false, bscn:false, tgt:0, pedal:0, held:false, brake:false, power:false, estop:false, reset:false,
+  eco:false, plug:false, grade:0, inject:0, miss:0, lost:0, seq:0, ok:0, hz:0, link:'connecting'};
+const SR = {on:false, pause:false, i:0, k:0, t:0};
+const H = {spd:[], lim:[], trq:[], soc:[], bus:[], rt:[], rn:[], re:[]}, LOG = [];
+
+/* ---------- 3D scene ---------- */
+const stage = $('stage');
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); $('view').appendChild(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x1b2838); scene.fog = new THREE.Fog(0x1b2838, 70, 420);
+const cam = new THREE.PerspectiveCamera(55, 1, .1, 1200); cam.position.set(7, 4, 8);
+const controls = new THREE.OrbitControls(cam, renderer.domElement);          // left orbit, right pan, wheel zoom
+controls.target.set(0, 1, 0);
+Object.assign(controls, {enableDamping:true, dampingFactor:.08, minDistance:4, maxDistance:70, maxPolarAngle:Math.PI*.49});
+scene.add(new THREE.HemisphereLight(0xdbe8ff, 0x2a3a33, 1.1));
+const sun = new THREE.DirectionalLight(0xffffff, .9); sun.position.set(20, 30, 10); scene.add(sun);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), new THREE.MeshLambertMaterial({color:0x2c3d34}));
+ground.rotation.x = -Math.PI/2; ground.position.y = -.02; scene.add(ground);
+const cv = document.createElement('canvas'); cv.width = 128; cv.height = 256;
+const g0 = cv.getContext('2d');                                              // tile = 12 m x 20 m
+g0.fillStyle = '#3a424c'; g0.fillRect(0,0,128,256);
+for (let i=0;i<900;i++){ g0.fillStyle = `rgba(255,255,255,${Math.random()*.07})`; g0.fillRect(Math.random()*128, Math.random()*256, 2, 2); }
+g0.fillStyle = '#ffffff'; g0.fillRect(6,0,4,256); g0.fillRect(118,0,4,256);
+g0.fillStyle = '#ffd24d'; g0.fillRect(62,0,5,64); g0.fillRect(62,128,5,64);
+const tex = new THREE.CanvasTexture(cv); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(1, 200); tex.anisotropy = 8;
+const road = new THREE.Mesh(new THREE.PlaneGeometry(12, 4000), new THREE.MeshLambertMaterial({map:tex}));
+road.rotation.x = -Math.PI/2; scene.add(road);
+const car = new THREE.Group(); scene.add(car);                                // nose points to -Z
+const box = (w,h,d,c,x,y,z,o={}) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), new THREE.MeshStandardMaterial({color:c,...o})); m.position.set(x,y,z); car.add(m); return m; };
+box(1.8,.55,4.2,0x4aa8ff,0,.6,0); box(1.5,.5,2,0xcfe8ff,0,1.12,.25,{metalness:.2,roughness:.2});
+const tail = [-.65,.65].map(x => box(.35,.15,.06,0x7a0000,x,.7,2.1,{emissive:0x000000}));
+[-.65,.65].forEach(x => box(.35,.15,.06,0xffffe0,x,.7,-2.1,{emissive:0xffffaa,emissiveIntensity:.7}));
+const wheels = [[-.95,-1.3],[.95,-1.3],[-.95,1.3],[.95,1.3]].map(([x,z]) => {
+  const p = new THREE.Group(); p.position.set(x,.33,z);
+  const w = new THREE.Mesh(new THREE.CylinderGeometry(.33,.33,.25,20), new THREE.MeshStandardMaterial({color:0x0c0f12}));
+  w.rotation.z = Math.PI/2; p.add(w); car.add(p); return p; });
+let prevZ = 0;
+function resize(){ const w = stage.clientWidth, h = stage.clientHeight; if (!w || !h) return; renderer.setSize(w,h); cam.aspect = w/h; cam.updateProjectionMatrix(); }
+new ResizeObserver(resize).observe(stage); resize();
+
+/* ---------- Static UI ---------- */
+SCEN.forEach(s => $('scn').add(new Option(s[0])));
+AREAS.forEach(a => $('areas').add(new Option(a[0])));
+$('areas').selectedIndex = 0;
+const dtcEls = DTC.map((t, b) => { const el = document.createElement('button'); el.className = 'dtc';
+  el.textContent = `Bit ${b} (${1<<b}): ${t}`; el.onclick = () => { S.inject ^= (1<<b); }; $('dtcList').appendChild(el); return el; });
+
+/* ---------- Controls ---------- */
+function setPower(on){ S.power = on; $('pwr').setAttribute('aria-pressed', on); $('pwr').textContent = on ? 'Power on' : 'Power off'; }
+function hold(el, on, off){ el.addEventListener('pointerdown', e => { el.setPointerCapture(e.pointerId); on(); });
+  ['pointerup','pointercancel','lostpointercapture'].forEach(t => el.addEventListener(t, off)); }
+const acc = v => {
+  if (v && !S.power) setPower(true);
+  S.held = v;
+  $('acc').classList.toggle('down', v);
+};
+hold($('acc'), () => acc(true), () => acc(false));
+hold($('brk'), () => { S.bman = true; $('brk').classList.add('down'); },                    // braking force comes from the MATLAB model
+              () => { S.bman = false; $('brk').classList.remove('down'); });
+$('est').onclick = () => { S.estop = true; };
+$('pwr').onclick = () => setPower(!S.power);
+$('eco').onchange = e => S.eco = e.target.checked;
+$('plug').onchange = e => S.plug = e.target.checked;
+addEventListener('keydown', e => { if (e.code === 'Space' && !e.repeat && e.target.tagName !== 'BUTTON') { e.preventDefault(); acc(true); } });
+addEventListener('keyup', e => { if (e.code === 'Space') acc(false); });
+
+function resetAll(){
+  SR.on = false; SR.pause = false; $('pause').textContent = 'Pause';
+  Object.assign(S, {tgt:0, pedal:0, bman:false, bscn:false, brake:false, v:0, grade:0, inject:0, plug:false, eco:false, reset:true});
+  acc(false); $('plug').checked = $('eco').checked = false; setPower(false);
+  for (const k in H) H[k].length = 0; LOG.length = 0;
+}
+function patch(o){
+  if ('p' in o) setPower(!!o.p);
+  if ('a' in o) S.tgt = o.a;
+  if ('b' in o) S.bscn = !!o.b;
+  if ('c' in o){ S.plug = !!o.c; $('plug').checked = S.plug; }
+  if ('eco' in o){ S.eco = !!o.eco; $('eco').checked = S.eco; }
+  if ('i' in o) S.inject = o.i;
+  if ('g' in o) S.grade = o.g;
+  if (o.e) S.estop = true;
+}
+$('run').onclick = () => { resetAll(); Object.assign(SR, {on:true, i:$('scn').selectedIndex, k:0, t:0}); };
+$('pause').onclick = () => { if (!SR.on) return; SR.pause = !SR.pause; $('pause').textContent = SR.pause ? 'Resume' : 'Pause'; };
+$('reset').onclick = resetAll;
+$('save').onclick = () => {
+  const head = 't_s,speed_kmh,soc_pct,state,dtc,torque_nm,rs_true_mohm,rs_ekf_mohm\n';
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([head + LOG.map(r => r.join(',')).join('\n')], {type:'text/csv'}));
+  a.download = 'sdv_log_' + new Date().toISOString().replace(/[:.]/g,'-') + '.csv'; a.click(); URL.revokeObjectURL(a.href);
+};
+function runScenario(){
+  if (!SR.on || SR.pause || !live()) return;
+  SR.t += DT; const ev = SCEN[SR.i][1];
+  while (SR.k < ev.length && ev[SR.k][0] <= SR.t) patch(ev[SR.k++][1]);
+  if (SR.t > ev[ev.length-1][0] + 6) SR.on = false;
+}
+
+/* ---------- 20 Hz telemetry sync (drift-corrected scheduler) ---------- */
+let busy = false, nextAt = performance.now();
+setInterval(() => { S.hz = S.ok; S.ok = 0; }, 1000);
+function pack(){
+  return {seq:++S.seq, t:Date.now()/1000, dt:DT, position:{x:0, y:0, z:+S.z.toFixed(3)}, heading:0, odometer:+S.odo.toFixed(2),
+    velocity:+S.v.toFixed(4),
+    inputs:{power:S.power, pedal_accel:+S.pedal.toFixed(3), pedal_brake:S.brake?1:0, accel_held:S.held, estop_event:S.estop,
+      reset_event:S.reset, eco:S.eco, charger_plugged:S.plug, grade_pct:S.grade},
+    inject_dtc:S.inject};
+}
+function advance(){
+  S.z -= S.v*DT; S.odo += S.v*DT;
+  if (S.z < -1000){ S.z += 2000; car.position.z += 2000; cam.position.z += 2000; controls.target.z += 2000; prevZ += 2000; }
+}
+function record(r){
+  const row = {spd:r.velocity_mps*3.6, lim:r.speed_limit_kph ?? NaN, trq:r.torque_nm, soc:r.soc_pct, bus:r.dc_bus_v ?? NaN,
+    rt:(r.rs_true_ohm ?? NaN)*1e3, rn:(r.rs_nominal_ohm ?? NaN)*1e3, re:(r.rs_ekf_ohm ?? NaN)*1e3};
+  for (const k in H){ H[k].push(row[k]); if (H[k].length > MAXH) H[k].shift(); }
+  if (LOG.length < 40000) LOG.push([(S.seq*DT).toFixed(2), row.spd.toFixed(2), r.soc_pct, r.state, r.dtc, r.torque_nm, row.rt.toFixed(3), row.re.toFixed(3)]);
+}
+function apply(r){ S.r = r; S.v = r.velocity_mps; S.err = ''; S.link = 'online (' + r.backend + ')'; S.miss = 0; S.ok++; advance(); record(r); }
+const live = () => !!S.r && S.miss < 10;                                       // 10 missed cycles = 0.5 s
+function miss(){ S.lost++; S.miss++; if (S.miss >= 10) S.link = 'offline'; }       // freeze: nothing is simulated here                 // 10 missed cycles = 0.5 s
+async function tick(){
+  nextAt += DT*1000; setTimeout(tick, Math.max(0, nextAt - performance.now()));
+  runScenario();
+  S.brake = S.bman || S.bscn;
+  S.pedal = clamp(S.pedal + clamp((S.held ? 1 : S.tgt) - S.pedal, -DT/.15, DT/.8), 0, 1);   // held Accelerate overrides scenario throttle
+  if (S.brake && $('bo').checked) S.pedal = 0;                                       // brake override: throttle cut at once
+  if (busy){ miss(); return; }
+  busy = true;
+  const hadE = S.estop, hadR = S.reset, ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 2000);
+  try {
+    const r = await fetch(API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(pack()), signal:ctl.signal});
+    if (!r.ok){ let m = 'HTTP ' + r.status; try { m = (await r.json()).error || m; } catch (_) {} throw new Error(m); }
+    apply(await r.json());
+    if (hadE) S.estop = false; if (hadR) S.reset = false;
+  } catch (e) { S.err = e.message === 'Failed to fetch' || e.name === 'AbortError' ? 'server not reachable' : e.message; miss(); }
+  finally { clearTimeout(to); busy = false; }
+}
+tick();
+
+/* ---------- Canvas charts ---------- */
+const fmt = v => Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(1);
+const fmtTime = v => v < 10 ? v.toFixed(1) : v.toFixed(0);
+function plot(cv, title, ser, units){
+  const dpr = devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight; if (!w || !h) return;
+  if (cv.width !== Math.round(w*dpr)){ cv.width = Math.round(w*dpr); cv.height = Math.round(h*dpr); }
+  const g = cv.getContext('2d'); g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,w,h);
+  const count = Math.max(0, ...ser.map(s => s.d.length));
+  const two = ser.some(s => s.ax), L = 48, R = two ? 52 : 12, T = 47, B = 24, pw = w-L-R, ph = h-T-B;
+  g.fillStyle = '#0d1722'; g.fillRect(L,T,pw,ph);
+  g.font = '600 12px "IBM Plex Sans",sans-serif'; g.fillStyle = '#f8fbff'; g.fillText(title, 10, 16);
+  g.font = '11px "IBM Plex Sans",sans-serif'; let lx = 10, ly = 31;
+  ser.forEach(s => {
+    const width = g.measureText(s.n).width + 28;
+    if (lx + width > w - 10){ lx = 10; ly += 15; }
+    g.fillStyle = s.c; g.fillRect(lx, ly - 7, 10, 3);
+    g.fillStyle = '#c9d6e3'; g.fillText(s.n, lx+14, ly);
+    lx += width;
+  });
+  if (!count){
+    g.fillStyle = '#8fa4b8'; g.textAlign = 'center'; g.fillText('Waiting for telemetry…', L + pw/2, T + ph/2);
+    g.textAlign = 'left'; return;
+  }
+  const rg = [0,1].map(a => { let lo = Infinity, hi = -Infinity;
+    ser.forEach(s => { if ((s.ax||0) === a) s.d.forEach(v => { if (v < lo) lo = v; if (v > hi) hi = v; }); });
+    if (!isFinite(lo)){ lo = 0; hi = 1; } if (hi - lo < 1e-6){ lo -= .5; hi += .5; }
+    const m = (hi-lo)*.08; return [lo-m, hi+m]; });
+  g.strokeStyle = '#2b4055'; g.lineWidth = 1; g.fillStyle = '#aebfd0';
+  for (let i=0;i<=3;i++){ const y = T + ph*i/3; g.beginPath(); g.moveTo(L,y); g.lineTo(L+pw,y); g.stroke();
+    g.textAlign = 'right'; g.fillText(fmt(rg[0][1] - (rg[0][1]-rg[0][0])*i/3), L-4, y+4);
+    if (two){ g.textAlign = 'left'; g.fillText(fmt(rg[1][1] - (rg[1][1]-rg[1][0])*i/3), L+pw+4, y+4); } }
+  g.strokeStyle = '#60788f'; g.beginPath(); g.moveTo(L,T+ph); g.lineTo(L+pw,T+ph); g.stroke();
+  g.font = '10px "IBM Plex Sans",sans-serif'; g.fillStyle = '#8fa4b8'; g.textAlign = 'left';
+  g.fillText('0 s', L, h-5); g.textAlign = 'right'; g.fillText(fmtTime((count-1)*DT) + ' s', L+pw, h-5);
+  g.textAlign = 'center'; g.fillText('time', L+pw/2, h-5);
+  g.save(); g.translate(10, T+ph/2); g.rotate(-Math.PI/2); g.fillText(units[0], 0, 0); g.restore();
+  if (two){ g.save(); g.translate(w-8, T+ph/2); g.rotate(Math.PI/2); g.fillText(units[1], 0, 0); g.restore(); }
+  g.textAlign = 'left';
+  ser.forEach(s => { const [lo,hi] = rg[s.ax||0]; g.beginPath(); g.strokeStyle = s.c; g.lineWidth = s.w || 2; g.setLineDash(s.dash ? [6,4] : []);
+    let pen = false;
+    s.d.forEach((v,i) => { if (!isFinite(v)){ pen = false; return; } const x = L + pw*i/Math.max(1,count-1), y = T + ph*(1-(v-lo)/(hi-lo)); pen ? g.lineTo(x,y) : g.moveTo(x,y); pen = true; });
+    g.stroke(); });
+  g.setLineDash([]);
+}
+const last = a => a.length ? a[a.length-1] : NaN;
+
+/* ---------- HUD ---------- */
+const n = (x, d, u='') => (x == null || !isFinite(x)) ? '--' : x.toFixed(d) + u;
+function hud(){
+  const r = S.r || NODATA, dtc = r.dtc, st = r.state, kmh = r.velocity_mps*3.6, on = live();
+  const lk = $('link'); lk.style.display = on ? 'none' : 'block';
+  lk.textContent = 'NO MATLAB LINK: ' + (S.err || 'waiting for first reply') + '. Nothing is simulated in the browser; start server.py with MATLAB.';
+  const bits = [...Array(9).keys()].filter(b => dtc >> b & 1);
+  const mode = r.drive_mode ?? (S.eco ? 'ECO' : 'NORMAL'), dir = [1,6,7].includes(st) ? 'P' : st === 3 ? 'N' : st === 2 ? 'P' : 'D';
+  $('mState').textContent = on ? STATES[st] : 'NO LINK'; $('mState').style.color = SCOL[st];
+  $('mSoc').textContent = n(r.soc_pct,1,' %'); $('mSpd').textContent = n(kmh,1,' km/h'); $('mBus').textContent = n(r.dc_bus_v,1,' V');
+  $('mFault').textContent = bits.length ? `Bit ${bits[0]}: ${DTC[bits[0]]}` + (bits.length > 1 ? ` (+${bits.length-1})` : '') : 'CLEAR';
+  $('mFault').style.color = bits.length ? 'var(--red)' : 'var(--teal)';
+  $('ckSpd').textContent = isFinite(kmh) ? Math.round(kmh) : '--'; $('ckLim').textContent = n(r.speed_limit_kph,0);
+  $('ckRange').textContent = n(r.range_km,0,' km'); $('ckSoc').textContent = n(r.soc_pct,1,' %');
+  $('ckState').textContent = on ? STATES[st] : 'NO LINK'; $('ckState').style.color = SCOL[st];
+  $('ckMode').textContent = mode; $('ckDir').textContent = dir;
+  const pw = r.motor_power_kw ?? 0;
+  $('ckPwr').textContent = pw < -.05 ? `REGEN ${(-pw).toFixed(1)} kW` : `DRIVE ${Math.max(0,pw).toFixed(1)} kW`;
+  $('ckPwr').style.color = pw < -.05 ? 'var(--green)' : 'var(--ink)';
+  $('pA').style.width = S.pedal*100 + '%'; $('pB').style.width = (S.brake ? 100 : 0) + '%';
+  const w = [];
+  if (r.fault_latched) w.push('FAULT ' + (bits.length ? 'bit ' + bits[0] : ''));
+  if (r.soc_pct < 20) w.push('BATTERY LOW');
+  if ((r.battery_temp_c ?? 0) > 45) w.push('BATTERY OVER-TEMP');
+  if ((r.motor_temp_c ?? 0) > 100) w.push('MOTOR OVER-TEMP');
+  if (dtc & 4) w.push('NETWORK LOST');
+  if (S.power && !r.contactors_closed && ![2,6].includes(st)) w.push('INTERLOCK NOT READY');
+  if (dtc & 256) w.push('EKF HEALTH');
+  if (st === 6) w.push('CHARGING');
+  $('warn').textContent = 'Warnings: ' + (w.length ? w.join('  |  ') : 'none');
+  $('warn').style.color = w.length ? 'var(--red)' : 'var(--green)';
+  dtcEls.forEach((el,b) => { el.classList.toggle('on', !!(dtc >> b & 1)); el.classList.toggle('inj', !!(S.inject >> b & 1)); });
+  $('arr').textContent = 'DTC [bit0..bit8] = [' + [...Array(9).keys()].map(b => dtc >> b & 1).join(',') + ']  value ' + dtc;
+  $('scnStat').textContent = SR.on ? `${SCEN[SR.i][0]} | t = ${SR.t.toFixed(1)} s${SR.pause ? ' (paused)' : ''}${!on ? ' (waiting for MATLAB)' : ''}${S.held ? ' | manual throttle' : ''}${S.brake && S.bman ? ' | manual brake' : ''}` : '';
+  $('tele').textContent = [
+    `Pack: ${n(r.soc_pct,1,'% SOC')} | ${n(r.motor_current_a,1,' A')}`,
+    `Charger: ${n(r.charger_kw ?? 0,2,' kW')} | ${r.charger_status ?? (S.plug ? 'PLUGGED' : 'DISCONNECTED')}`,
+    `Battery / motor temp: ${n(r.battery_temp_c,1)} / ${n(r.motor_temp_c,1)} deg C`,
+    `Regen: ${n((r.regen_wh ?? 0)/1000,3,' kWh')} | ${n(r.wh_per_km,0,' Wh/km modeled')}`,
+    `Range estimate: ${n(r.range_km,0,' km')}`,
+    `Torque: ${n(r.torque_nm,0,' Nm')} (${r.torque_permitted ? 'permitted' : 'blocked'})`,
+    `Network frames: TX ${S.seq} / RX ${S.seq - S.lost} / lost ${S.lost}`,
+    `Backend: ${S.link} | ${S.hz} Hz | MATLAB ${n(r.matlab_ms,0,' ms/step')}`,
+    `Unwired model inputs: ${(r.unwired_inputs || []).join(', ') || 'none'}`].join('\n');
+  const a = $('areas').selectedIndex < 0 ? 0 : $('areas').selectedIndex;
+  $('detail').textContent = [AREAS[a][0], '', AREAS[a][1], '', 'CURRENT RUN',
+    'Scenario: ' + SCEN[$('scn').selectedIndex][0], `VCU: ${on ? STATES[st] : 'NO LINK'}`,
+    'DTC: ' + (bits.length ? bits.map(b => DTC[b]).join('; ') : 'OK'),
+    'Network: ' + ((dtc & 4) ? 'TIMEOUT' : 'ONLINE'), 'Contactor: ' + (r.contactors_closed ? 'CLOSED' : 'OPEN')].join('\n');
+  const eF = Math.abs(last(H.rn) - last(H.rt)), eE = Math.abs(last(H.re) - last(H.rt));
+  plot($('c1'), 'Speed / torque', [{d:H.spd, c:'#63b3ff', n:'Speed'}, {d:H.lim, c:'#ffc14d', dash:1, n:'Limit'}, {d:H.trq, c:'#ff9d5c', ax:1, n:'Torque'}], ['km/h','Nm']);
+  plot($('c2'), 'SOC / DC bus', [{d:H.soc, c:'#6ee7a0', n:'SOC'}, {d:H.bus, c:'#c4a5ff', ax:1, n:'DC bus'}], ['%','V']);
+  plot($('c3'), isFinite(eF) ? `EKF Rs F${eF.toFixed(1)} / A${eE.toFixed(1)}` : 'EKF Rs (no data)',
+    [{d:H.rt, c:'#ffffff', dash:1, n:'Rs true'}, {d:H.rn, c:'#ffc14d', n:'Rs fixed'}, {d:H.re, c:'#5eead4', w:3, n:'Rs EKF'}], ['mOhm','']);
+}
+
+/* ---------- Render loop ---------- */
+let pt = performance.now(), hudAt = 0;
+function frame(t){
+  const dt = Math.min(.05, (t - pt)/1000); pt = t;
+  car.position.z += (S.z - car.position.z) * Math.min(1, dt*20);
+  const dz = car.position.z - prevZ; cam.position.z += dz; controls.target.z += dz; prevZ = car.position.z;
+  wheels.forEach(w => w.rotation.x -= (live() ? S.v : 0)*dt/.33);
+  tail.forEach(m => m.material.emissive.setHex(S.brake ? 0xff1a1a : 0x000000));
+  if (t - hudAt > 100){ hudAt = t; hud(); }
+  controls.update(); renderer.render(scene, cam); requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
